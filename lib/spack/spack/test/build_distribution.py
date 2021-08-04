@@ -8,9 +8,11 @@ import pytest
 import os
 import os.path
 
-import spack.spec
+import pytest
+
 import spack.binary_distribution
 import spack.mirror
+import spack.spec
 
 install = spack.main.SpackCommand('install')
 
