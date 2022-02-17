@@ -189,6 +189,25 @@ class UrlPatch(Patch):
         Args:
             stage: stage for the package that needs to be patched
         """
+        # use archive digest for compressed archives
+        fetch_digest = self.sha256
+        if self.archive_sha256:
+            fetch_digest = self.archive_sha256
+
+        fetcher = fs.URLFetchStrategy(self.url, fetch_digest,
+                                      expand=bool(self.archive_sha256))
+
+        # Patch url's can be ambiguous - The same patch name can have different
+        # versions that apply to different versions of the package. We append
+        # a bit of the hash to differentiate them. (Collision odds are exceedingly low
+        # given how few of these there should be, including b-day attack odds). 
+        name = '{0}-{1}'.format(os.path.basename(self.url), fetch_digest[:8])
+
+        per_package_ref = os.path.join(self.owner.split('.')[-1], name)
+        # Reference starting with "spack." is required to avoid cyclic imports
+        mirror_ref = spack.mirror.mirror_archive_paths(fetcher, per_package_ref)
+
+        self.stage = spack.stage.Stage(fetcher, mirror_paths=mirror_ref)
         self.stage.create()
         self.stage.fetch()
         self.stage.check()
@@ -207,6 +226,7 @@ class UrlPatch(Patch):
                 raise NoSuchPatchError(
                     "Patch failed to download: %s" % self.url)
 
+        
         self.path = os.path.join(root, files.pop())
 
         if not os.path.isfile(self.path):

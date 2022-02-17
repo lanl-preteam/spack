@@ -568,7 +568,6 @@ def _add_single_spec(spec, mirror, mirror_stats):
             tty.warn(
                 "Error while fetching %s" % spec.cformat('{name}{@version}'),
                 getattr(exception, 'message', exception))
-        mirror_stats.error()
 
 
 class MirrorError(spack.error.SpackError):
