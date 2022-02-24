@@ -207,7 +207,7 @@ class UrlPatch(Patch):
         # Reference starting with "spack." is required to avoid cyclic imports
         mirror_ref = spack.mirror.mirror_archive_paths(fetcher, per_package_ref)
 
-        self.stage = spack.stage.Stage(fetcher, mirror_paths=mirror_ref)
+        self._stage = spack.stage.Stage(fetcher, mirror_paths=mirror_ref)
         self.stage.create()
         self.stage.fetch()
         self.stage.check()
