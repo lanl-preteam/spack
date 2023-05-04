@@ -1957,6 +1957,16 @@ def extract_tarball(spec, download_result, allow_root=False, unsigned=False, for
             _delete_staged_downloads(download_result)
             shutil.rmtree(extracted_dir)
             raise e
+
+    # Make sure the parent directory exists be for we try 
+    # to move the extracted tar
+    try:
+        os.makedirs(os.path.dirname(spec.prefix), exist_ok=True)
+    except OSError as e
+        _delete_staged_downloads(download_result)
+        shutil.rmtree(extracted_dir)
+        raise e
+
     try:
         shutil.move(extracted_dir, spec.prefix)
     except Exception as e:
