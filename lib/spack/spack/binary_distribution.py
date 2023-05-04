@@ -1962,7 +1962,7 @@ def extract_tarball(spec, download_result, allow_root=False, unsigned=False, for
     # to move the extracted tar
     try:
         os.makedirs(os.path.dirname(spec.prefix), exist_ok=True)
-    except OSError as e
+    except OSError as e:
         _delete_staged_downloads(download_result)
         shutil.rmtree(extracted_dir)
         raise e
