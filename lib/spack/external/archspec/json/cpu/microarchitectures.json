@@ -224,6 +224,13 @@
             "flags": "-march={name} -mtune=generic"
           }
         ],
+        "intel": [
+          {
+            "versions": "19.1:",
+            "name": "x86-64-v3",
+            "flags": "-march=core-avx2 -mtune=generic"
+          }
+        ],
         "dpcpp": [
           {
             "versions": "2021.2.0:",
