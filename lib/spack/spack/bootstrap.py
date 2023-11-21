@@ -250,6 +250,8 @@ class _BootstrapperBase(object):
 
     @property
     def mirror_url(self):
+        # hotfix for an issue Spack runs into when trying to bootstrap clingo without access to the internet
+        return "https://pe-serve.lanl.gov/spack-mirror"
         # Absolute paths
         if os.path.isabs(self.url):
             return spack.util.url.format(self.url)
@@ -264,7 +266,7 @@ class _BootstrapperBase(object):
     @property
     def mirror_scope(self):
         return spack.config.InternalConfigScope(
-            self.config_scope_name, {"mirrors:": {self.name: self.mirror_url}}
+            self.config_scope_name, {"mirrors": {self.name: self.mirror_url}}
         )
 
 
