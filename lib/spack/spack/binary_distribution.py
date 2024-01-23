@@ -1196,6 +1196,7 @@ def generate_key_index(key_prefix, tmpdir=None):
 def _build_tarball(
     spec,
     outdir,
+    fetch_url,
     force=False,
     relative=False,
     unsigned=False,
@@ -1219,12 +1220,13 @@ def _build_tarball(
     tarfile_path = os.path.join(tarfile_dir, tarfile_name)
     spackfile_path = os.path.join(cache_prefix, tarball_path_name(spec, ".spack"))
 
-    remote_spackfile_path = url_util.join(outdir, os.path.relpath(spackfile_path, tmpdir))
+    remote_spackfile_path = url_util.join(fetch_url, os.path.relpath(spackfile_path, tmpdir))
+    push_spackfile_path = url_util.join(outdir, os.path.relpath(spackfile_path, tmpdir))
 
     mkdirp(tarfile_dir)
     if web_util.url_exists(remote_spackfile_path):
         if force:
-            web_util.remove_url(remote_spackfile_path)
+            web_util.remove_url(push_spackfile_path)
         else:
             raise NoOverwriteException(url_util.format(remote_spackfile_path))
 
@@ -1340,14 +1342,14 @@ def _build_tarball(
         sign_specfile(key, force, specfile_path)
 
     # push tarball and signed spec json to remote mirror
-    web_util.push_to_url(spackfile_path, remote_spackfile_path, keep_original=False)
+    web_util.push_to_url(spackfile_path, push_spackfile_path, keep_original=False)
     web_util.push_to_url(
         signed_specfile_path if not unsigned else specfile_path,
         remote_signed_specfile_path if not unsigned else remote_specfile_path,
         keep_original=False,
     )
 
-    tty.debug('Buildcache for "{0}" written to \n {1}'.format(spec, remote_spackfile_path))
+    tty.debug('Buildcache for "{0}" written to \n {1}'.format(spec, push_spackfile_path))
 
     try:
         # push the key to the build cache's _pgp directory so it can be
@@ -1401,7 +1403,7 @@ def nodes_to_be_packaged(specs, include_root=True, include_dependencies=True):
     return expanded_set
 
 
-def push(specs, push_url, specs_kwargs=None, **kwargs):
+def push(specs, push_url, fetch_url, specs_kwargs=None, **kwargs):
     """Create a binary package for each of the specs passed as input and push them
     to a given push URL.
 
@@ -1421,7 +1423,7 @@ def push(specs, push_url, specs_kwargs=None, **kwargs):
     # TODO: distribution using a parallel pool
     for node in nodes:
         try:
-            _build_tarball(node, push_url, **kwargs)
+            _build_tarball(node, push_url, fetch_url, **kwargs)
         except NoOverwriteException as e:
             warnings.warn(str(e))
 

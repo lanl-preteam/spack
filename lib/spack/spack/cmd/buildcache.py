@@ -355,12 +355,16 @@ def create_fn(args):
     """create a binary package and push it to a mirror"""
     if args.directory:
         push_url = spack.mirror.push_url_from_directory(args.directory)
+        fetch_url = push_url
 
     if args.mirror_name:
         push_url = spack.mirror.push_url_from_mirror_name(args.mirror_name)
+        mirror = spack.mirror.MirrorCollection().lookup(args.mirror_name)
+        fetch_url = url_util.format(mirror.fetch_url)
 
     if args.mirror_url:
         push_url = spack.mirror.push_url_from_mirror_url(args.mirror_url)
+        fetch_url = push_url
 
     matches = _matching_specs(args)
 
@@ -378,7 +382,7 @@ def create_fn(args):
         "allow_root": args.allow_root,
         "regenerate_index": args.rebuild_index,
     }
-    bindist.push(matches, push_url, specs_kwargs, **kwargs)
+    bindist.push(matches, push_url, fetch_url, specs_kwargs, **kwargs)
 
 
 def install_fn(args):
