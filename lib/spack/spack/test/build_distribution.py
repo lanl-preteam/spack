@@ -55,11 +55,17 @@ def test_build_tarball_split_mirror(install_mockery,
         spec = spack.spec.Spec('trivial-install-test-package').concretized()
         install(str(spec))
 
+        push_url = spack.util.url.path_to_file_url(tmpdir + '/push') 
+        fetch_url = spack.util.url.path_to_file_url(tmpdir + '/fetch') 
+
+        mirror_data = {}
+        mirror_data['url'] = push_url
+        mirror_data['push'] = push_url
+        mirror_data['fetch'] = fetch_url
+
+        mirror = spack.mirror.Mirror(mirror_data)
+
         # Runs fine the first time, throws the second time
-        mirror = spack.mirror.Mirror.from_local_path(str(tmpdir))
-        base_url = mirror.push_url
-        mirror.push_url = base_url + '/push'
-        mirror.fetch_url = base_url + '/fetch'
         spack.binary_distribution.build_tarball(spec, mirror, unsigned=True)
         # It exists in the push dir
         with pytest.raises(spack.binary_distribution.NoOverwriteException):
