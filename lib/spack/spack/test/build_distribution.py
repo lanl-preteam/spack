@@ -56,7 +56,7 @@ def test_build_tarball_split_mirror(install_mockery,
         install(str(spec))
 
         # Runs fine the first time, throws the second time
-        mirror = spack.mirror.MirrorCollection().lookup('.')
+        mirror = spack.mirror.Mirror.from_local_path(str(tmpdir))
         base_url = mirror.push_url
         mirror.push_url = base_url + '/push'
         mirror.fetch_url = base_url + '/fetch'
