@@ -11,6 +11,7 @@ import pytest
 
 import spack.binary_distribution as bd
 import spack.main
+import spack.mirror
 import spack.spec
 import spack.util.url
 
@@ -25,13 +26,13 @@ def test_build_tarball_overwrite(install_mockery, mock_fetch, monkeypatch, tmpdi
         install(str(spec))
 
         # Runs fine the first time, throws the second time
-        out_url = spack.util.url.path_to_file_url(str(tmpdir))
-        bd.push_or_raise(spec, out_url, bd.PushOptions(unsigned=True))
+        mirror = spack.mirror.Mirror.from_local_path(str(tmpdir))
+        bd.push_or_raise(spec, mirror, bd.PushOptions(unsigned=True))
         with pytest.raises(bd.NoOverwriteException):
-            bd.push_or_raise(spec, out_url, bd.PushOptions(unsigned=True))
+            bd.push_or_raise(spec, mirror, bd.PushOptions(unsigned=True))
 
         # Should work fine with force=True
-        bd.push_or_raise(spec, out_url, bd.PushOptions(force=True, unsigned=True))
+        bd.push_or_raise(spec, mirror, bd.PushOptions(force=True, unsigned=True))
 
         # Remove the tarball and try again.
         # This must *also* throw, because of the existing .spec.json file
@@ -44,7 +45,7 @@ def test_build_tarball_overwrite(install_mockery, mock_fetch, monkeypatch, tmpdi
         )
 
         with pytest.raises(bd.NoOverwriteException):
-            bd.push_or_raise(spec, out_url, bd.PushOptions(unsigned=True))
+            bd.push_or_raise(spec, mirror, bd.PushOptions(unsigned=True))
 
 
 def test_build_tarball_split_mirror(install_mockery,
