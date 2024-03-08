@@ -55,8 +55,8 @@ def test_build_tarball_split_mirror(install_mockery,
         spec = spack.spec.Spec('trivial-install-test-package').concretized()
         install(str(spec))
 
-        push_url = spack.util.url.path_to_file_url(tmpdir + '/push') 
-        fetch_url = spack.util.url.path_to_file_url(tmpdir + '/fetch') 
+        push_url = spack.util.url.path_to_file_url(str(tmpdir) + '/push') 
+        fetch_url = spack.util.url.path_to_file_url(str(tmpdir) + '/fetch') 
 
         mirror_data = {}
         mirror_data['url'] = push_url
@@ -66,32 +66,32 @@ def test_build_tarball_split_mirror(install_mockery,
         mirror = spack.mirror.Mirror(mirror_data)
 
         # Runs fine the first time, throws the second time
-        spack.binary_distribution.build_tarball(spec, mirror, unsigned=True)
+        bd.push_or_raise(spec, mirror, bd.PushOptions(unsigned=True))
         # It exists in the push dir
-        with pytest.raises(spack.binary_distribution.NoOverwriteException):
-            spack.binary_distribution.build_tarball(spec, mirror, unsigned=True)
+        with pytest.raises(bd.NoOverwriteException):
+            bd.push_or_raise(spec, mirror, bd.PushOptions(unsigned=True))
         # But now we force building anyway
-        spack.binary_distribution.build_tarball(spec, mirror, force=True, unsigned=True)
+        bd.push_or_raise(spec, mirror, bd.PushOptions(force=True, unsigned=True))
         os.rename('push', 'fetch')
         # It now exists in the fetch dir, but not push
-        with pytest.raises(spack.binary_distribution.NoOverwriteException):
-            spack.binary_distribution.build_tarball(spec, mirror, unsigned=True)
+        with pytest.raises(bd.NoOverwriteException):
+            bd.push_or_raise(spec, mirror, bd.PushOptions(unsigned=True))
         # But now we force the build anyway
-        spack.binary_distribution.build_tarball(spec, mirror, force=True, unsigned=True)
+        bd.push_or_raise(spec, mirror, bd.PushOptions(force=True, unsigned=True))
 
         shutil.rmtree('push')
         # Delete all packages from the fetch directory
         # Remove the tarball and try again.
         # This must *also* throw, because of the existing .spec.yaml file
         os.remove(os.path.join(
-            spack.binary_distribution.build_cache_prefix('fetch'),
-            spack.binary_distribution.tarball_directory_name(spec),
-            spack.binary_distribution.tarball_name(spec, '.spack')))
-        with pytest.raises(spack.binary_distribution.NoOverwriteException):
-            spack.binary_distribution.build_tarball(spec, mirror, unsigned=True)
-        spack.binary_distribution.build_tarball(spec, mirror, force=True, unsigned=True)
+            bd.build_cache_prefix('fetch'),
+            bd.tarball_directory_name(spec),
+            bd.tarball_name(spec, '.spack')))
+        with pytest.raises(bd.NoOverwriteException):
+            bd.push_or_raise(spec, mirror, bd.PushOptions(unsigned=True))
+        bd.push_or_raise(spec, mirror, bd.PushOptions(force=True, unsigned=True))
         shutil.rmtree('push')
         os.rename('fetch', 'push')
-        with pytest.raises(spack.binary_distribution.NoOverwriteException):
-            spack.binary_distribution.build_tarball(spec, mirror, unsigned=True)
-        spack.binary_distribution.build_tarball(spec, mirror, force=True, unsigned=True)
+        with pytest.raises(bd.NoOverwriteException):
+            bd.push_or_raise(spec, mirror, bd.PushOptions(unsigned=True))
+        bd.push_or_raise(spec, mirror, bd.PushOptions(force=True, unsigned=True))
