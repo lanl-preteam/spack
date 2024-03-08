@@ -2889,17 +2889,7 @@ This allows Python packages to directly use these variables:
 
    def install(self, spec, prefix):
        ...
-<<<<<<< HEAD
-       # py-sncosmo binaries are duplicates of those from py-astropy
-       extends('python', ignore=r'bin/.*')
-       depends_on('py-astropy')
-       ...
-
-The code above will prevent everything in the ``$prefix/bin/`` directory
-from being linked in a view.
-=======
        install("script.py", python_platlib)
->>>>>>> v0.21.2
 
 .. note::
 
