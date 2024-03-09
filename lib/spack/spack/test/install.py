@@ -636,7 +636,7 @@ def test_install_from_binary_with_missing_patch_succeeds(
 
     # Push it to a binary cache
     build_cache = tmp_path / "my_build_cache"
-    mirror = spack.mirror.Mirror.from_local_path(build_cache.as_uri())
+    mirror = spack.mirror.Mirror.from_local_path(str(build_cache))
     binary_distribution.push_or_raise(
         s,
         mirror,
