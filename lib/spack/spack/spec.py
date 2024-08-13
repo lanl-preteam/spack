@@ -4464,6 +4464,7 @@ class Spec:
                         try:
                             current = getattr(current, part)
                         except AttributeError:
+                            return
                             parent = ".".join(parts[:idx])
                             m = "Attempted to format attribute %s." % attribute
                             m += "Spec %s has no attribute %s" % (parent, part)
