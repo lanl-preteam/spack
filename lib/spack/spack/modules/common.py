@@ -59,6 +59,7 @@ import spack.util.path
 import spack.util.spack_yaml as syaml
 from spack.context import Context
 
+from spack.build_systems.python import PythonPackage
 
 #: config section for this file
 def configuration(module_set_name):
@@ -79,6 +80,118 @@ _valid_tokens = (
     "compilername",
     "compilerver",
 )
+
+
+def get_cmake_prefix_path(pkg):
+    # Note that unlike modifications_from_dependencies, this does not include
+    # any edits to CMAKE_PREFIX_PATH defined in custom
+    # setup_dependent_build_environment implementations of dependency packages
+    build_deps = set(pkg.spec.dependencies(deptype=("build", "test")))
+    link_deps = set(pkg.spec.traverse(root=False, deptype=("link")))
+    build_link_deps = build_deps | link_deps
+    spack_built = []
+    externals = []
+    # modifications_from_dependencies updates CMAKE_PREFIX_PATH by first
+    # prepending all externals and then all non-externals
+    for dspec in pkg.spec.traverse(root=False, order="post"):
+        if dspec in build_link_deps:
+            if dspec.external:
+                externals.insert(0, dspec)
+            else:
+                spack_built.insert(0, dspec)
+
+    ordered_build_link_deps = spack_built + externals
+    cmake_prefix_path_entries = []
+    for spec in ordered_build_link_deps:
+        cmake_prefix_path_entries.extend(spec.package.cmake_prefix_paths)
+
+    return filter_system_paths(cmake_prefix_path_entries)
+
+
+def _setup_pkg_and_run(
+    serialized_pkg, function, kwargs, child_pipe, input_multiprocess_fd, jsfd1, jsfd2
+):
+
+    context = kwargs.get("context", "build")
+
+    try:
+        # We are in the child process. Python sets sys.stdin to
+        # open(os.devnull) to prevent our process and its parent from
+        # simultaneously reading from the original stdin. But, we assume
+        # that the parent process is not going to read from it till we
+        # are done with the child, so we undo Python's precaution.
+        if input_multiprocess_fd is not None:
+            sys.stdin = os.fdopen(input_multiprocess_fd.fd)
+
+        pkg = serialized_pkg.restore()
+
+        if not kwargs.get("fake", False):
+            kwargs["unmodified_env"] = os.environ.copy()
+            kwargs["env_modifications"] = setup_package(
+                pkg, dirty=kwargs.get("dirty", False), context=context
+            )
+        return_value = function(pkg, kwargs)
+        child_pipe.send(return_value)
+
+    except StopPhase as e:
+        # Do not create a full ChildError from this, it's not an error
+        # it's a control statement.
+        child_pipe.send(e)
+    except BaseException:
+        # catch ANYTHING that goes wrong in the child process
+        exc_type, exc, tb = sys.exc_info()
+
+        # Need to unwind the traceback in the child because traceback
+        # objects can't be sent to the parent.
+        tb_string = traceback.format_exc()
+
+        # build up some context from the offending package so we can
+        # show that, too.
+        package_context = get_package_context(tb)
+
+        logfile = None
+        if context == "build":
+            try:
+                if hasattr(pkg, "log_path"):
+                    logfile = pkg.log_path
+            except NameError:
+                # 'pkg' is not defined yet
+                pass
+        elif context == "test":
+            logfile = os.path.join(
+                pkg.test_suite.stage, spack.install_test.TestSuite.test_log_name(pkg.spec)
+            )
+
+        error_msg = str(exc)
+        if isinstance(exc, (spack.multimethod.NoSuchMethodError, AttributeError)):
+            error_msg = (
+                "The '{}' package cannot find an attribute while trying to build "
+                "from sources. This might be due to a change in Spack's package format "
+                "to support multiple build-systems for a single package. You can fix this "
+                "by updating the build recipe, and you can also report the issue as a bug. "
+                "More information at https://spack.readthedocs.io/en/latest/packaging_guide.html#installation-procedure"
+            ).format(pkg.name)
+            error_msg = colorize("@*R{{{}}}".format(error_msg))
+            error_msg = "{}\n\n{}".format(str(exc), error_msg)
+
+        # make a pickleable exception to send to parent.
+        msg = "%s: %s" % (exc_type.__name__, error_msg)
+
+        ce = ChildError(
+            msg,
+            exc_type.__module__,
+            exc_type.__name__,
+            tb_string,
+            logfile,
+            context,
+            package_context,
+        )
+        child_pipe.send(ce)
+
+    finally:
+        child_pipe.close()
+        if input_multiprocess_fd is not None:
+            input_multiprocess_fd.close()
 
 
 def _check_tokens_are_valid(format_string, message):
@@ -729,9 +842,24 @@ class BaseContext(tengine.Context):
             spec, context=Context.RUN
         ).set_all_package_py_globals()
 
-        # Then run setup_dependent_run_environment before setup_run_environment.
-        for dep in spec.dependencies(deptype=("link", "run")):
-            dep.package.setup_dependent_run_environment(env, spec)
+        is_system_path = spack.util.environment.is_system_path
+        # Get all of the python dependencies.
+        for dep in spec.traverse(root=False, deptype=("run"), order="post"):
+            dpkg = dep.package
+            spack.build_environment.SetupContext(
+                dep, context=Context.RUN).set_all_package_py_globals()
+
+            for libvar in 'platlib', 'purelib':
+                if hasattr(dpkg, libvar):
+                    libpath = os.path.join(dep.prefix, getattr(dpkg, libvar))
+                    if not is_system_path(libpath):
+                        env.prepend_path("PYTHONPATH", os.path.join(dep.prefix, libpath))
+
+            for dirname in ["bin", "bin64"]:
+                bin_dir = os.path.join(dep.prefix, dirname)
+                if os.path.isdir(bin_dir) and not is_system_path(bin_dir):
+                    env.prepend_path("PATH", bin_dir)
+
         spec.package.setup_run_environment(env)
 
         # Modifications required from modules.yaml
