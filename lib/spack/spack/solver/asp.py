@@ -2905,10 +2905,7 @@ class SpecBuilder:
         packages_yaml = spack.config.get("packages")
         packages_yaml = _normalize_packages_yaml(packages_yaml)
         spec_info = packages_yaml[node.pkg]["externals"][int(idx)]
-        external_path = spec_info.get("prefix", None)
-        if external_path is not None:
-            external_path = spack.util.path.canonicalize_path(external_path)
-        self._specs[node].external_path = external_path
+        self._specs[node].external_path = spec_info.get("prefix", None)
         self._specs[node].external_modules = spack.spec.Spec._format_module_list(
             spec_info.get("modules", None)
         )
